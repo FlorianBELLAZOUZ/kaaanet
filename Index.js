@@ -1,3 +1,3 @@
-exports.Client = require('./client');
-exports.Server = require('./server');
-exports.Packet = require('./packet');
+exports.Client = require('./lib/client');
+exports.Server = require('./lib/server');
+exports.Packet = require('./lib/packet');
