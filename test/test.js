@@ -4,9 +4,11 @@ var Mocha = require('mocha');
 var Wss = require('ws').Server;
 var Events = require('events');
 var Should = require('chai').should();
+
 var Packet = require('../index.js').Packet;
 var Server = require('../index.js').Server;
 var Client = require('../index.js').Client;
+
 var ServerClient = require('../index.js').Server._ServerClient;
 
 var server;
@@ -95,13 +97,9 @@ describe('Server', function() {
         done();
       });
 
-      var ws = new Ws('ws://localhost:8080');
-      ws.on('open', function() {
-        var packet = new Bin();
-        packet.criptFlag(0);
-        packet.cript(2,2);
-        packet.criptUTF8();
-        ws.send(packet.utf8);
+      var client = new Client('ws://localhost:8080', packet);
+      client.on('open', function() {
+        client.send.test({version:2});
       });
     });
 
@@ -116,6 +114,52 @@ describe('Server', function() {
       var client = args[1];
       client.should.exist;
       client.should.be.a.instanceof(ServerClient);
+    });
+  });
+
+  describe('ServerClient', function () {
+    it('should get all send function', function() {
+      server.once('connection', function(client) {
+        client.should.be.an.instanceof(ServerClient);
+        for (var i = client.send.length - 1; i >= 0; i--) {
+          s = client.send[i];
+          s.should.exist;
+          s.should.be.an.instanceof(Function);
+        };
+        done();
+      });
+
+      var ws = new Ws('ws://localhost:8080');
+    });
+
+    it('should get test message', function(done) {
+      server.once('connection', function(client) {
+        client.once('test', function(data) {
+          done();
+        });
+      });
+
+      var client = new Client('ws://localhost:8080', packet);
+      client.on('open', function() {
+        client.send.test({version:3});
+      });
+    });
+
+    it('should send test message', function(done) {
+      server.once('connection', function(client) {
+        client.once('test', function(data, client) {
+          client.send.test({version:1});
+        });
+      });
+
+      var client = new Client('ws://localhost:8080', packet);
+      client.on('open', function() {
+        client.send.test({version:3});
+      });
+      client.on('test', function(data) {
+        data.version.should.be.equal(1);
+        done();
+      });
     });
   });
 });
