@@ -1,14 +1,12 @@
-var _ = require('lodash');
 var Ws = require('ws');
+var _ = require('lodash');
 var Mocha = require('mocha');
 var Wss = require('ws').Server;
 var Events = require('events');
 var Should = require('chai').should();
-
 var Packet = require('../index.js').Packet;
 var Server = require('../index.js').Server;
 var Client = require('../index.js').Client;
-
 var ServerClient = require('../index.js').Server._ServerClient;
 
 var server;
@@ -241,8 +239,69 @@ describe('Client', function() {
   });
 });
 
-
 describe('E2E test', function() {
+  context('on collection in packet', function() {
+    it('should cript & decript the collection', function(done) {
+      var packet = Packet.create([
+        {
+          name:'foo',
+          collection:[{
+            foo:'string-4',
+            integer:'integer-11'
+          },11]
+        }
+      ]);
+
+      var packetData = {
+        collection:[
+          {foo:'foo',integer:23},
+          {foo:'haha',integer:21},
+          {foo:'hoho',integer:43},
+          {foo:'hihi',integer:54},
+          {foo:'huhu',integer:22},
+        ]
+      };
+
+      var server = new Server(8282, packet);
+
+      server.on('foo', function(data) {
+        delete data.name
+        data.should.be.deep.equal(packetData);
+        done();
+      });
+
+      var client = new Client('ws://localhost:8282', packet);
+      client.on('open', function() {
+        client.send.foo(packetData);
+      })
+
+
+    });
+  });
+
+  context.skip('on undefined or null value', function() {
+    var packet = Packet.create([
+      {
+        name:'foo',
+        test:'integer-4',
+        nullValue:'integer-4',
+        foo:'integer-11',
+      }
+    ]);
+
+    var server = new Server(8745, packet);
+    var client = new Client('ws://localhost:8745', packet);
+
+    it('should return null value', function(done) {
+      server.on('foo', function(data) {
+        data.nullValue.should.not.exist;
+        done();
+      });
+
+      client.send.foo({test:1,nullValue:null,foo:12});
+    });
+  });
+
   context('should exchange all packets', function() {
     var packet;
     var server;
