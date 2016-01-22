@@ -277,6 +277,47 @@ describe('E2E test', function() {
 
 
     });
+
+    it('should cript & decript nested collection', function(done) {
+      var packet = Packet.create([
+        {
+          name:'foo',
+          collection:[{
+            foo:'string-4',
+            integer:'integer-11',
+            positions:[{
+              x:'integer-11',
+              y:'integer-11'
+            },11],
+          },11]
+        }
+      ]);
+
+      var packetData = {
+        collection:[
+          {foo:'foo',integer:23,positions:[{x:3,y:4},{x:2,y:4},{x:3,y:6}]},
+          {foo:'haha',integer:21,positions:[{x:2,y:4},{x:3,y:6},{x:2,y:4}]},
+          {foo:'hoho',integer:43,positions:[{x:3,y:4},{x:2,y:4},{x:3,y:6}]},
+          {foo:'hihi',integer:54,positions:[{x:3,y:4},{x:2,y:4},{x:3,y:6}]},
+          {foo:'huhu',integer:22,positions:[{x:3,y:4},{x:2,y:4},{x:3,y:6}]},
+        ]
+      };
+
+      var server = new Server(8383, packet);
+
+      server.on('foo', function(data) {
+        delete data.name
+        data.should.be.deep.equal(packetData);
+        done();
+      });
+
+      var client = new Client('ws://localhost:8383', packet);
+      client.on('open', function() {
+        client.send.foo(packetData);
+      })
+
+
+    });
   });
 
   context.skip('on undefined or null value', function() {
