@@ -89,7 +89,7 @@ describe('Server', function() {
   describe('!packetName', function() {
     var args;
     before(function (done) {
-      server.on('test', function(data, client) {
+      server.once('test', function(data, client) {
         args = arguments;
         ws.close();
         done();
