@@ -1,6 +1,6 @@
 {
   "name": "kaaanet",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Tiny packets echange over websocket",
   "main": "Index.js",
   "dependencies": {
@@ -17,5 +17,9 @@
     "start": "node server.js"
   },
   "author": "Florian BELLAZOUZ",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/florianbellazouz/kaaanet.git"
+  }
 }
