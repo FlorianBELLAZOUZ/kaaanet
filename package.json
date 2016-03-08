@@ -4,9 +4,9 @@
   "description": "Tiny packets echange over websocket",
   "main": "Index.js",
   "dependencies": {
-    "lodash": "^4.0.0",
     "kaaa-bin": "^0.0.11",
-    "ws": "^0.8.0"
+    "lodash": "^4.0.0",
+    "ws": "^1.0.1"
   },
   "devDependencies": {
     "mocha": "^2.3.2",
