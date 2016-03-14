@@ -8,6 +8,11 @@ var Packet = require('../index.js').Packet;
 var Server = require('../index.js').Server;
 var Client = require('../index.js').Client;
 var ServerClient = require('../index.js').Server._ServerClient;
+var Txt = Packet.Txt;
+var Int = Packet.Int;
+var ArrayTxt = Packet.ArrayTxt;
+var ArrayInt = Packet.ArrayInt;
+
 
 var server;
 var packet;
@@ -18,7 +23,7 @@ var wss;
 var array = [
   {
     name:'test',
-    version:'integer-2'
+    version:Int(2)
  }
 ]
 
@@ -246,8 +251,8 @@ describe('E2E test', function() {
         {
           name:'foo',
           collection:[{
-            foo:'string-4',
-            integer:'integer-11'
+            foo:Txt(4),
+            integer:Int(11)
           },11]
         }
       ]);
@@ -283,10 +288,10 @@ describe('E2E test', function() {
         {
           name:'foo',
           collection:[{
-            foo:'string-4',
-            integer:'integer-11',
+            foo:Txt(4),
+            integer:Int(11),
             positions:[{
-              x:'integer-11',
+              x:Int(11),
               y:'integer-11'
             },11],
           },11]
@@ -324,9 +329,9 @@ describe('E2E test', function() {
     var packet = Packet.create([
       {
         name:'foo',
-        test:'integer-4',
-        nullValue:'integer-4',
-        foo:'integer-11',
+        test:Int(4),
+        nullValue:Int(4),
+        foo:Int(11),
       }
     ]);
 
@@ -352,21 +357,21 @@ describe('E2E test', function() {
       packet = new Packet([
         {
           name:'test',
-          version:'integer-2',
-          string:'string-4',
-          arrayString:'arrayString-4-4',
-          arrayNumber:'arrayNumber-6-4',
+          version:Int(2),
+          string:Txt(4),
+          arrayString:ArrayTxt(4, 4),
+          arrayNumber:ArrayInt(6, 4),
         },
         {
           name:'testFoo',
-          number:'integer-30',
+          number:Int(30),
         },
         {
           name:'gamePacket',
-          x:'integer-11',
-          y:'integer-11',
-          state:'integer-4',
-          entity:'integer-4',
+          x:Int(11),
+          y:Int(11),
+          state:Int(4),
+          entity:Int(4),
         },
       ]);
 
