@@ -1,6 +1,6 @@
 {
   "name": "kaaanet",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Tiny packets echange over websocket",
   "main": "Index.js",
   "dependencies": {
@@ -10,11 +10,21 @@
     "chai": "^3.2.0"
   },
   "devDependencies": {
-    "mocha": "^2.3.2"
+    "karma": "^0.13.22",
+    "karma-chrome-launcher": "^0.2.2",
+    "karma-commonjs": "0.0.13",
+    "karma-mocha": "^0.2.2",
+    "karma-mocha-reporter": "^2.0.0",
+    "karma-sourcemap-loader": "^0.3.7",
+    "karma-webpack": "^1.7.0",
+    "mocha": "^2.3.2",
+    "webpack": "^1.12.14"
   },
   "scripts": {
-    "test": "mocha",
-    "start": "node server.js"
+    "test": "mocha ./test/nodejs",
+    "start": "node server.js",
+    "testBrowser": "karma start karma.conf.js",
+    "build" : "webpack lib/Client.browser.js dist/client.js && uglifyjs dist/client.js -o dist/client.min.js"
   },
   "author": "Florian BELLAZOUZ",
   "license": "ISC",
