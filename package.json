@@ -1,6 +1,6 @@
 {
   "name": "kaaanet",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Tiny packets echange over websocket",
   "main": "Index.js",
   "dependencies": {
