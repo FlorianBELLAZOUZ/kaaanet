@@ -1,7 +1,8 @@
-exports.Client = require('./lib/Client');
-exports.Server = require('./lib/Server');
 exports.Packet = Packet = require('./lib/Packet');
-exports.Int = Packet.Int;
-exports.Txt = Packet.Txt;
+exports.Client = require('./lib/Client.browser');
+exports.ClientNodejs = require('./lib/Client');
+exports.Server = require('./lib/Server');
 exports.ArrayInt = Packet.ArrayInt;
 exports.ArrayTxt = Packet.ArrayTxt;
+exports.Int = Packet.Int;
+exports.Txt = Packet.Txt;
