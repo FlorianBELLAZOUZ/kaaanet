@@ -1,18 +1,17 @@
-var Ws = require('ws');
-var _ = require('lodash');
-var Mocha = require('mocha');
-var Wss = require('ws').Server;
-var Events = require('events');
-var Should = require('chai').should();
+var ServerClient = require('../../index.js').Server._ServerClient;
+var Client = require('../../index.js').ClientNodejs;
 var Packet = require('../../index.js').Packet;
 var Server = require('../../index.js').Server;
-var Client = require('../../index.js').Client;
-var ServerClient = require('../../index.js').Server._ServerClient;
-var Txt = Packet.Txt;
-var Int = Packet.Int;
+var Should = require('chai').should();
+var Wss = require('ws').Server;
+var Events = require('events');
+var Mocha = require('mocha');
+var _ = require('lodash');
+var Ws = require('ws');
 var ArrayTxt = Packet.ArrayTxt;
 var ArrayInt = Packet.ArrayInt;
-
+var Txt = Packet.Txt;
+var Int = Packet.Int;
 
 var server;
 var packet;
