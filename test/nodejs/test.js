@@ -6,6 +6,7 @@ var Should = require('chai').should();
 var Wss = require('ws').Server;
 var Events = require('events');
 var Mocha = require('mocha');
+var Bin = require('kaaabin');
 var _ = require('lodash');
 var Ws = require('ws');
 var ArrayTxt = Packet.ArrayTxt;
