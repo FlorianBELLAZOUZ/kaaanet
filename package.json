@@ -24,7 +24,7 @@
     "test": "mocha ./test/nodejs",
     "start": "node server.js",
     "testBrowser": "karma start karma.conf.js",
-    "build": "webpack lib/Client.browser.js dist/client.js && uglifyjs dist/client.js -o dist/client.min.js"
+    "build": "webpack && uglifyjs dist/client.js -o dist/client.min.js"
   },
   "author": "Florian BELLAZOUZ",
   "license": "ISC",

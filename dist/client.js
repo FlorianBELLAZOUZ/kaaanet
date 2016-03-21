@@ -44,37 +44,756 @@
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var Packet = __webpack_require__(1);
-	var ClientKernel = __webpack_require__(42);
+	var Ws = __webpack_require__(1);
+	var Bin = __webpack_require__(2);
+	var PacketEmitter = __webpack_require__(3);
+	var Packet = __webpack_require__(5);
+	var Util = __webpack_require__(46);
 
 	function Client(url, packets, opt) {
 	  this.url = url;
 	  this._initWs(url, opt);
 
-	  ClientKernel.prototype.constructor.call(this, url, packets, opt);
+	  PacketEmitter.prototype.constructor.call(this, packets);
 	}
 
-	Client.prototype = Object.create(ClientKernel.prototype);
+	Client.Packet = Packet;
+
+	Client.prototype = Object.create(PacketEmitter.prototype);
 
 	Client.prototype.constructor = Client;
 
-	Client.prototype._initWs = function(url, opt){
-	  this._ws = new WebSocket(url, opt);
-	  this._ws.addEventListener('message', this._onmessage.bind(this));
-	  this._ws.addEventListener('open', this.emit.bind(this, 'open'));
-	  this._ws.addEventListener('error', this.emit.bind(this, 'error'));
-	  this._ws.addEventListener('close', this.emit.bind(this, 'close'));
+	Client.prototype.close = function(code, msg) {
+	  this._ws.close(code, msg);
+	};
+
+	Client.prototype.reconnection = function(url, opt) {
+	  this._initWs(url, opt);
 	}
 
+	Client.prototype._initWs = function(url, opt){
+	  this._ws = new Ws(url, opt);
+	  this._ws.on('message', this._onmessage.bind(this));
+	  this._ws.on('open', this.emit.bind(this, 'open'));
+	  this._ws.on('error', this.emit.bind(this, 'error'));
+	  this._ws.on('close', this.emit.bind(this, 'close'));
+	}
+
+	Client.prototype._onmessage = function(data) {
+	  var bin = new Bin();
+	  bin.decriptUTF8(data);
+	  var flag = bin.decriptFlag();
+	  if (this._decript[flag] === undefined) {
+	    var msg = '[kaaanetClient] on message from ' + this.url;
+	    msg += ' The flag n° ' + flag + ' don\'t exist in the client\'s packets ';
+	    msg += '' + Util.inspect(this.packets);
+	    throw new Error(msg);
+	  }
+
+	  var data = this._decript[flag](bin);
+	  this.emit(data.name, data, this);
+	};
+
+	Client.prototype._createSend = function(packet) {
+	  var _this = this;
+	  return function(data) {
+	    var p = _this._cript[packet.name](data);
+	    if (_this._ws.readyState === 1) _this._ws.send(p);
+	  };
+	};
+
 	module.exports = Client;
-	module.exports.Packet = Packet;
 
 
 /***/ },
 /* 1 */
+/***/ function(module, exports) {
+
+	WebSocket.prototype.on = WebSocket.prototype.addEventListener;
+
+	module.exports = WebSocket;
+
+
+/***/ },
+/* 2 */
+/***/ function(module, exports) {
+
+	module.exports = Bin = function(){
+		this.bin = "";
+		this.out = {};
+		this.utf8 = "";
+	}
+
+	Bin.prototype.criptFlag = function(val) {
+		var bin = val.toString(2);
+
+		// Ajouter le nombre de 0;
+		while(bin.length < 7){
+			bin = "0"+bin;
+		}
+
+		bin = "1"+bin;
+
+		if(bin.length>8){
+			console.error("le flag est codé sur 7 bits");
+			return -1;
+		}
+
+		this.bin += bin;
+
+		return this.bin;
+	}
+
+	Bin.prototype.decriptFlag = function(){
+		this.decript(8,'flag');
+		var a = this.out.flag.toString(2);
+
+		a = "0"+a.slice(1);
+
+		this.out.flag = parseInt(a,2);
+		
+		return this.out.flag;
+	}
+
+	Bin.prototype.cript = function(bit,val) {
+		var val = Number(val);
+		
+		if(isNaN(val)){
+			throw new Error("la valeur à cripter n'est pas un nombre");
+			val = 0;
+		}
+
+		var bin = Number(val).toString(2);
+
+		// Ajouter le nombre de 0;
+		while(bin.length < bit){
+			bin = "0"+bin;
+		}
+
+		if(bin.length>bit){
+			console.log(val, "est trop grand");
+			throw new Error("vous avez depasse le nombre de bit(s)");
+			return -1;
+		}
+
+		this.bin += bin;
+
+		return this.bin;
+	}
+
+	Bin.prototype.decript = function(bit,name) {
+		if(this.bin == ""){
+			console.warn("rien a decript"); 
+			return -1;
+		}
+
+		var a = parseInt(this.bin.slice(0,bit),2);
+
+		this.bin = this.bin.slice(bit);
+		
+		if(name) this.out[name] = a;
+		return a;
+	};
+
+	Bin.prototype.criptString = function(bit,s){
+		var string = String(s);
+		var ajout = bit - string.length;
+
+		if(ajout<0){ 
+			console.error("Vous avez depassé le nombre de bit(s)");
+			return -1;
+		}
+		while(ajout>0){
+			string = String.fromCharCode(0)+string;
+			ajout --
+		}
+
+		for(var a =0; a<string.length;a++){
+			var bin = string.charCodeAt(a).toString(2);
+
+			while(bin.length < 8){
+				bin = "0"+bin;
+			}
+
+			this.bin += bin;
+		}
+
+		return this.bin;
+	}
+
+	Bin.prototype.decriptString = function(bit,name){
+		var out = "";
+
+		for(var i = 0; i<bit; i++){
+			var a = parseInt(this.bin.slice(0,8),2);
+			this.bin = this.bin.slice(8);
+			if(a == 0 ) continue;
+			var caract = String.fromCharCode(a);
+			out += caract;
+		}
+
+		if(name) this.out[name] = out;
+
+		return out;
+	}
+
+	Bin.prototype.criptArrayString = function(bytes,bitLengthArray,array){
+
+		this.cript(bitLengthArray,array.length);
+		for(var i in array){
+			var d = array[i];
+			if(typeof d != "string"){ throw new Error("Le tableau n'accepte que des valeur string"); }
+			this.criptString(bytes,d);
+		}
+
+		return this.bin;
+	}
+
+	Bin.prototype.decriptArrayString = function(bytes,bitLengthArray,name){
+		var out = [];
+		
+		var nb = this.decript(bitLengthArray);
+
+		for(var i =0 ; i <nb;i++){
+			out.push(this.decriptString(bytes));
+		}
+
+		if(name) this.out[name] = out;
+		return out;
+	}
+
+	Bin.prototype.criptArray = function(bit,bitLengthArray,array){
+		this.cript(bitLengthArray,array.length);
+		for(var i in array){
+			var d = array[i];
+			if(typeof d != "number"){ throw new Error("Le tableau n'accepte que des valeur number"); }
+			this.cript(bit,d);
+		}
+
+		return this.bin;
+	}
+
+	Bin.prototype.decriptArray = function(bit,bitLengthArray,name){
+		var out = [];
+		
+		var nb = this.decript(bitLengthArray);
+
+		for(var i =0 ; i <nb;i++){
+			out.push(this.decript(bit));
+		}
+
+		if(name) this.out[name] = out;
+		return out;
+	}
+
+	Bin.prototype.criptUTF8 = function(){
+		var a = this.bin;
+
+		var c = '';
+		while(a.length > 0){
+			var b = a.slice(0,8);
+
+			a = a.slice(8);
+
+			while(b.length < 8){
+				b = b+"0";
+			}
+
+			b = parseInt(b,2);
+			b = String.fromCharCode(b);
+
+			this.utf8 = this.utf8+b;
+		}
+
+		return this.utf8;
+	}
+
+	Bin.prototype.decriptUTF8 = function(utf8){
+		var a;
+		this.bin = "";
+		for(var i = 0; i<utf8.length;i++){
+			var u = utf8.charCodeAt(i).toString(2);
+			while(u.length < 8){
+				u = "0"+u;
+			}
+			if(u == ""){
+				this.bin += "00000000"
+			}else{
+				this.bin += u;
+			}
+		}
+
+		return this.bin;
+	}
+
+/***/ },
+/* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var Expect = __webpack_require__(2).expect;
+	var EventEmitter = __webpack_require__(4);
+
+	function PacketEmitter(packets) {
+	  this.packets = packets;
+	  this.send = {};
+	  this._cript = {};
+	  this._decript = {};
+	  if (packets) this.initPackets(packets);
+	}
+
+	PacketEmitter.prototype = Object.create(EventEmitter.prototype);
+
+	PacketEmitter.prototype.constructor = PacketEmitter;
+
+	PacketEmitter.prototype.initPackets = function(packets) {
+	  this.packets = packets;
+	  this._createCripts(packets);
+	  this._createDecripts(packets);
+	  this._createSends(packets);
+	};
+
+	PacketEmitter.prototype.extendPackets = function(packets) {
+	  this.packets = this.packets.concat(packets);
+	  this.initPackets(this.packets);
+	};
+
+	PacketEmitter.prototype._createCripts = function(packets) {
+	  for (var i = packets.length - 1; i >= 0; i--) {
+	    var p = packets[i];
+	    this._cript[p.name] = this._createCript(p, i);
+	  };
+	};
+
+	PacketEmitter.prototype._createDecripts = function(packets) {
+	  for (var i = packets.length - 1; i >= 0; i--) {
+	    var p = packets[i];
+	    this._decript[i] = this._createDecript(p);
+	  };
+	};
+
+	PacketEmitter.prototype._createSends = function(packets) {
+	  for (var i = packets.length - 1; i >= 0; i--) {
+	    var p = packets[i];
+	    this.send[p.name] = this._createSend(p);
+	  };
+	};
+
+	PacketEmitter.prototype._createSend = function() {};
+
+	PacketEmitter.prototype._createDecript = function(packet) {
+	  var _this = this;
+	  return function(bin) {
+	    var out = {};
+	    out.name = packet.name;
+
+	    _this._decriptBinaryWithPacket(packet, bin, out);
+
+	    return out;
+	  };
+	};
+
+	PacketEmitter.prototype._decriptBinaryWithPacket = function(packet, bin, out) {
+	  var make = {
+	    string: 'decriptString',
+	    integer: 'decript',
+	    arrayString: 'decriptArrayString',
+	    arrayNumber: 'decriptArray',
+	  };
+
+	  if (bin.bin === '') return;
+
+	  for (var i in packet) {
+	    if (i === 'name') continue;
+
+	    if (packet[i] instanceof Array) {
+	      if (typeof packet[i][1] != 'number') {
+	        var msg = 'the collection packet definition : "' + i + '"\n';
+	        msg += 'must have an integer in the second element to define the size of the collection (in bits)\n';
+	        msg += ' Actual value : ' + packet[i][1];
+	        throw new SyntaxError(msg);
+	      }
+
+	      var le = bin.decript(packet[i][1]);
+	      var collection = [];
+	      for (var y = 0; y < le; y++) {
+	        var obj = {};
+	        this._decriptBinaryWithPacket(packet[i][0], bin, obj);
+	        collection.unshift(obj);
+	      }
+
+	      out[i] = collection;
+	    }else {
+	      var split = packet[i].split('-');
+	      var type =  split[0];
+	      var size =  split.slice(1).map(function(el) {return Number(el);});
+
+	      var algo = make[type];
+	      if (algo === undefined) throw new TypeError('The type ' + type + ' don\'t exist');
+	      out[i] = bin[algo].apply(bin, size.concat(i));
+	    }
+	  }
+	};
+
+	PacketEmitter.prototype._createCript = function(packet, flag) {
+	  var _this = this;
+	  return function(data) {
+	    var bin = new Bin();
+	    bin.criptFlag(flag);
+	    _this._createBinaryWithPacket(packet, bin, data);
+	    return bin.criptUTF8();
+	  };
+	};
+
+	PacketEmitter.prototype._createBinaryWithPacket = function(packet, bin, data) {
+	  var make = {
+	    string: 'criptString',
+	    integer: 'cript',
+	    arrayString: 'criptArrayString',
+	    arrayNumber: 'criptArray',
+	  };
+
+	  var _undefined = {
+	    string: '',
+	    integer: 0,
+	    arrayString: [],
+	    arrayNumber: [],
+	  };
+
+	  for (var i in packet) {
+	    if (i === 'name' || !data) continue;
+	    if (packet[i] instanceof Array) {
+	      if(!data[i]) throw new Error('The datas have not '+i+' key');
+	      bin.cript(packet[i][1], data[i].length);
+	      var collectionData = data[i];
+	      for (var y = collectionData.length - 1; y >= 0; y--) {
+	        var data = collectionData[y];
+	        this._createBinaryWithPacket(packet[i][0], bin, data);
+	      };
+	    }else {
+	      var split = packet[i].split('-');
+	      var type =  split[0];
+	      var size =  split.slice(1).map(function(el) {return Number(el);});
+
+	      var algo = make[type];
+	      if (algo === undefined) throw new TypeError('The type ' + type + ' don\'t exist');
+
+	      data[i] = data[i] === undefined ? _undefined[type] : data[i];
+	      bin[algo].apply(bin, size.concat([data[i]]));
+	    }
+	  }
+	};
+
+	module.exports = PacketEmitter;
+
+
+/***/ },
+/* 4 */
+/***/ function(module, exports) {
+
+	// Copyright Joyent, Inc. and other Node contributors.
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a
+	// copy of this software and associated documentation files (the
+	// "Software"), to deal in the Software without restriction, including
+	// without limitation the rights to use, copy, modify, merge, publish,
+	// distribute, sublicense, and/or sell copies of the Software, and to permit
+	// persons to whom the Software is furnished to do so, subject to the
+	// following conditions:
+	//
+	// The above copyright notice and this permission notice shall be included
+	// in all copies or substantial portions of the Software.
+	//
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+	// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+	// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+	// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+	// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+	// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+	// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+	function EventEmitter() {
+	  this._events = this._events || {};
+	  this._maxListeners = this._maxListeners || undefined;
+	}
+	module.exports = EventEmitter;
+
+	// Backwards-compat with node 0.10.x
+	EventEmitter.EventEmitter = EventEmitter;
+
+	EventEmitter.prototype._events = undefined;
+	EventEmitter.prototype._maxListeners = undefined;
+
+	// By default EventEmitters will print a warning if more than 10 listeners are
+	// added to it. This is a useful default which helps finding memory leaks.
+	EventEmitter.defaultMaxListeners = 10;
+
+	// Obviously not all Emitters should be limited to 10. This function allows
+	// that to be increased. Set to zero for unlimited.
+	EventEmitter.prototype.setMaxListeners = function(n) {
+	  if (!isNumber(n) || n < 0 || isNaN(n))
+	    throw TypeError('n must be a positive number');
+	  this._maxListeners = n;
+	  return this;
+	};
+
+	EventEmitter.prototype.emit = function(type) {
+	  var er, handler, len, args, i, listeners;
+
+	  if (!this._events)
+	    this._events = {};
+
+	  // If there is no 'error' event listener then throw.
+	  if (type === 'error') {
+	    if (!this._events.error ||
+	        (isObject(this._events.error) && !this._events.error.length)) {
+	      er = arguments[1];
+	      if (er instanceof Error) {
+	        throw er; // Unhandled 'error' event
+	      }
+	      throw TypeError('Uncaught, unspecified "error" event.');
+	    }
+	  }
+
+	  handler = this._events[type];
+
+	  if (isUndefined(handler))
+	    return false;
+
+	  if (isFunction(handler)) {
+	    switch (arguments.length) {
+	      // fast cases
+	      case 1:
+	        handler.call(this);
+	        break;
+	      case 2:
+	        handler.call(this, arguments[1]);
+	        break;
+	      case 3:
+	        handler.call(this, arguments[1], arguments[2]);
+	        break;
+	      // slower
+	      default:
+	        args = Array.prototype.slice.call(arguments, 1);
+	        handler.apply(this, args);
+	    }
+	  } else if (isObject(handler)) {
+	    args = Array.prototype.slice.call(arguments, 1);
+	    listeners = handler.slice();
+	    len = listeners.length;
+	    for (i = 0; i < len; i++)
+	      listeners[i].apply(this, args);
+	  }
+
+	  return true;
+	};
+
+	EventEmitter.prototype.addListener = function(type, listener) {
+	  var m;
+
+	  if (!isFunction(listener))
+	    throw TypeError('listener must be a function');
+
+	  if (!this._events)
+	    this._events = {};
+
+	  // To avoid recursion in the case that type === "newListener"! Before
+	  // adding it to the listeners, first emit "newListener".
+	  if (this._events.newListener)
+	    this.emit('newListener', type,
+	              isFunction(listener.listener) ?
+	              listener.listener : listener);
+
+	  if (!this._events[type])
+	    // Optimize the case of one listener. Don't need the extra array object.
+	    this._events[type] = listener;
+	  else if (isObject(this._events[type]))
+	    // If we've already got an array, just append.
+	    this._events[type].push(listener);
+	  else
+	    // Adding the second element, need to change to array.
+	    this._events[type] = [this._events[type], listener];
+
+	  // Check for listener leak
+	  if (isObject(this._events[type]) && !this._events[type].warned) {
+	    if (!isUndefined(this._maxListeners)) {
+	      m = this._maxListeners;
+	    } else {
+	      m = EventEmitter.defaultMaxListeners;
+	    }
+
+	    if (m && m > 0 && this._events[type].length > m) {
+	      this._events[type].warned = true;
+	      console.error('(node) warning: possible EventEmitter memory ' +
+	                    'leak detected. %d listeners added. ' +
+	                    'Use emitter.setMaxListeners() to increase limit.',
+	                    this._events[type].length);
+	      if (typeof console.trace === 'function') {
+	        // not supported in IE 10
+	        console.trace();
+	      }
+	    }
+	  }
+
+	  return this;
+	};
+
+	EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+	EventEmitter.prototype.once = function(type, listener) {
+	  if (!isFunction(listener))
+	    throw TypeError('listener must be a function');
+
+	  var fired = false;
+
+	  function g() {
+	    this.removeListener(type, g);
+
+	    if (!fired) {
+	      fired = true;
+	      listener.apply(this, arguments);
+	    }
+	  }
+
+	  g.listener = listener;
+	  this.on(type, g);
+
+	  return this;
+	};
+
+	// emits a 'removeListener' event iff the listener was removed
+	EventEmitter.prototype.removeListener = function(type, listener) {
+	  var list, position, length, i;
+
+	  if (!isFunction(listener))
+	    throw TypeError('listener must be a function');
+
+	  if (!this._events || !this._events[type])
+	    return this;
+
+	  list = this._events[type];
+	  length = list.length;
+	  position = -1;
+
+	  if (list === listener ||
+	      (isFunction(list.listener) && list.listener === listener)) {
+	    delete this._events[type];
+	    if (this._events.removeListener)
+	      this.emit('removeListener', type, listener);
+
+	  } else if (isObject(list)) {
+	    for (i = length; i-- > 0;) {
+	      if (list[i] === listener ||
+	          (list[i].listener && list[i].listener === listener)) {
+	        position = i;
+	        break;
+	      }
+	    }
+
+	    if (position < 0)
+	      return this;
+
+	    if (list.length === 1) {
+	      list.length = 0;
+	      delete this._events[type];
+	    } else {
+	      list.splice(position, 1);
+	    }
+
+	    if (this._events.removeListener)
+	      this.emit('removeListener', type, listener);
+	  }
+
+	  return this;
+	};
+
+	EventEmitter.prototype.removeAllListeners = function(type) {
+	  var key, listeners;
+
+	  if (!this._events)
+	    return this;
+
+	  // not listening for removeListener, no need to emit
+	  if (!this._events.removeListener) {
+	    if (arguments.length === 0)
+	      this._events = {};
+	    else if (this._events[type])
+	      delete this._events[type];
+	    return this;
+	  }
+
+	  // emit removeListener for all listeners on all events
+	  if (arguments.length === 0) {
+	    for (key in this._events) {
+	      if (key === 'removeListener') continue;
+	      this.removeAllListeners(key);
+	    }
+	    this.removeAllListeners('removeListener');
+	    this._events = {};
+	    return this;
+	  }
+
+	  listeners = this._events[type];
+
+	  if (isFunction(listeners)) {
+	    this.removeListener(type, listeners);
+	  } else if (listeners) {
+	    // LIFO order
+	    while (listeners.length)
+	      this.removeListener(type, listeners[listeners.length - 1]);
+	  }
+	  delete this._events[type];
+
+	  return this;
+	};
+
+	EventEmitter.prototype.listeners = function(type) {
+	  var ret;
+	  if (!this._events || !this._events[type])
+	    ret = [];
+	  else if (isFunction(this._events[type]))
+	    ret = [this._events[type]];
+	  else
+	    ret = this._events[type].slice();
+	  return ret;
+	};
+
+	EventEmitter.prototype.listenerCount = function(type) {
+	  if (this._events) {
+	    var evlistener = this._events[type];
+
+	    if (isFunction(evlistener))
+	      return 1;
+	    else if (evlistener)
+	      return evlistener.length;
+	  }
+	  return 0;
+	};
+
+	EventEmitter.listenerCount = function(emitter, type) {
+	  return emitter.listenerCount(type);
+	};
+
+	function isFunction(arg) {
+	  return typeof arg === 'function';
+	}
+
+	function isNumber(arg) {
+	  return typeof arg === 'number';
+	}
+
+	function isObject(arg) {
+	  return typeof arg === 'object' && arg !== null;
+	}
+
+	function isUndefined(arg) {
+	  return arg === void 0;
+	}
+
+
+/***/ },
+/* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Expect = __webpack_require__(6).expect;
 
 	var packet = {
 		name:"name",
@@ -128,14 +847,14 @@
 
 
 /***/ },
-/* 2 */
+/* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(3);
+	module.exports = __webpack_require__(7);
 
 
 /***/ },
-/* 3 */
+/* 7 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -157,13 +876,13 @@
 	 * Assertion Error
 	 */
 
-	exports.AssertionError = __webpack_require__(4);
+	exports.AssertionError = __webpack_require__(8);
 
 	/*!
 	 * Utils for plugins (not exported)
 	 */
 
-	var util = __webpack_require__(5);
+	var util = __webpack_require__(9);
 
 	/**
 	 * # .use(function)
@@ -194,47 +913,47 @@
 	 * Configuration
 	 */
 
-	var config = __webpack_require__(18);
+	var config = __webpack_require__(22);
 	exports.config = config;
 
 	/*!
 	 * Primary `Assertion` prototype
 	 */
 
-	var assertion = __webpack_require__(37);
+	var assertion = __webpack_require__(41);
 	exports.use(assertion);
 
 	/*!
 	 * Core Assertions
 	 */
 
-	var core = __webpack_require__(38);
+	var core = __webpack_require__(42);
 	exports.use(core);
 
 	/*!
 	 * Expect interface
 	 */
 
-	var expect = __webpack_require__(39);
+	var expect = __webpack_require__(43);
 	exports.use(expect);
 
 	/*!
 	 * Should interface
 	 */
 
-	var should = __webpack_require__(40);
+	var should = __webpack_require__(44);
 	exports.use(should);
 
 	/*!
 	 * Assert interface
 	 */
 
-	var assert = __webpack_require__(41);
+	var assert = __webpack_require__(45);
 	exports.use(assert);
 
 
 /***/ },
-/* 4 */
+/* 8 */
 /***/ function(module, exports) {
 
 	/*!
@@ -352,7 +1071,7 @@
 
 
 /***/ },
-/* 5 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -371,124 +1090,124 @@
 	 * test utility
 	 */
 
-	exports.test = __webpack_require__(6);
+	exports.test = __webpack_require__(10);
 
 	/*!
 	 * type utility
 	 */
 
-	exports.type = __webpack_require__(8);
+	exports.type = __webpack_require__(12);
 
 	/*!
 	 * expectTypes utility
 	 */
-	exports.expectTypes = __webpack_require__(10);
+	exports.expectTypes = __webpack_require__(14);
 
 	/*!
 	 * message utility
 	 */
 
-	exports.getMessage = __webpack_require__(11);
+	exports.getMessage = __webpack_require__(15);
 
 	/*!
 	 * actual utility
 	 */
 
-	exports.getActual = __webpack_require__(12);
+	exports.getActual = __webpack_require__(16);
 
 	/*!
 	 * Inspect util
 	 */
 
-	exports.inspect = __webpack_require__(13);
+	exports.inspect = __webpack_require__(17);
 
 	/*!
 	 * Object Display util
 	 */
 
-	exports.objDisplay = __webpack_require__(17);
+	exports.objDisplay = __webpack_require__(21);
 
 	/*!
 	 * Flag utility
 	 */
 
-	exports.flag = __webpack_require__(7);
+	exports.flag = __webpack_require__(11);
 
 	/*!
 	 * Flag transferring utility
 	 */
 
-	exports.transferFlags = __webpack_require__(19);
+	exports.transferFlags = __webpack_require__(23);
 
 	/*!
 	 * Deep equal utility
 	 */
 
-	exports.eql = __webpack_require__(20);
+	exports.eql = __webpack_require__(24);
 
 	/*!
 	 * Deep path value
 	 */
 
-	exports.getPathValue = __webpack_require__(28);
+	exports.getPathValue = __webpack_require__(32);
 
 	/*!
 	 * Deep path info
 	 */
 
-	exports.getPathInfo = __webpack_require__(29);
+	exports.getPathInfo = __webpack_require__(33);
 
 	/*!
 	 * Check if a property exists
 	 */
 
-	exports.hasProperty = __webpack_require__(30);
+	exports.hasProperty = __webpack_require__(34);
 
 	/*!
 	 * Function name
 	 */
 
-	exports.getName = __webpack_require__(14);
+	exports.getName = __webpack_require__(18);
 
 	/*!
 	 * add Property
 	 */
 
-	exports.addProperty = __webpack_require__(31);
+	exports.addProperty = __webpack_require__(35);
 
 	/*!
 	 * add Method
 	 */
 
-	exports.addMethod = __webpack_require__(32);
+	exports.addMethod = __webpack_require__(36);
 
 	/*!
 	 * overwrite Property
 	 */
 
-	exports.overwriteProperty = __webpack_require__(33);
+	exports.overwriteProperty = __webpack_require__(37);
 
 	/*!
 	 * overwrite Method
 	 */
 
-	exports.overwriteMethod = __webpack_require__(34);
+	exports.overwriteMethod = __webpack_require__(38);
 
 	/*!
 	 * Add a chainable method
 	 */
 
-	exports.addChainableMethod = __webpack_require__(35);
+	exports.addChainableMethod = __webpack_require__(39);
 
 	/*!
 	 * Overwrite chainable method
 	 */
 
-	exports.overwriteChainableMethod = __webpack_require__(36);
+	exports.overwriteChainableMethod = __webpack_require__(40);
 
 
 /***/ },
-/* 6 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -501,7 +1220,7 @@
 	 * Module dependancies
 	 */
 
-	var flag = __webpack_require__(7);
+	var flag = __webpack_require__(11);
 
 	/**
 	 * # test(object, expression)
@@ -522,7 +1241,7 @@
 
 
 /***/ },
-/* 7 */
+/* 11 */
 /***/ function(module, exports) {
 
 	/*!
@@ -561,14 +1280,14 @@
 
 
 /***/ },
-/* 8 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(9);
+	module.exports = __webpack_require__(13);
 
 
 /***/ },
-/* 9 */
+/* 13 */
 /***/ function(module, exports) {
 
 	/*!
@@ -708,7 +1427,7 @@
 
 
 /***/ },
-/* 10 */
+/* 14 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -731,9 +1450,9 @@
 	 * @api public
 	 */
 
-	var AssertionError = __webpack_require__(4);
-	var flag = __webpack_require__(7);
-	var type = __webpack_require__(8);
+	var AssertionError = __webpack_require__(8);
+	var flag = __webpack_require__(11);
+	var type = __webpack_require__(12);
 
 	module.exports = function (obj, types) {
 	  var obj = flag(obj, 'object');
@@ -756,7 +1475,7 @@
 
 
 /***/ },
-/* 11 */
+/* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -769,10 +1488,10 @@
 	 * Module dependancies
 	 */
 
-	var flag = __webpack_require__(7)
-	  , getActual = __webpack_require__(12)
-	  , inspect = __webpack_require__(13)
-	  , objDisplay = __webpack_require__(17);
+	var flag = __webpack_require__(11)
+	  , getActual = __webpack_require__(16)
+	  , inspect = __webpack_require__(17)
+	  , objDisplay = __webpack_require__(21);
 
 	/**
 	 * ### .getMessage(object, message, negateMessage)
@@ -813,7 +1532,7 @@
 
 
 /***/ },
-/* 12 */
+/* 16 */
 /***/ function(module, exports) {
 
 	/*!
@@ -839,15 +1558,15 @@
 
 
 /***/ },
-/* 13 */
+/* 17 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// This is (almost) directly from Node.js utils
 	// https://github.com/joyent/node/blob/f8c335d0caf47f16d31413f89aa28eda3878e3aa/lib/util.js
 
-	var getName = __webpack_require__(14);
-	var getProperties = __webpack_require__(15);
-	var getEnumerableProperties = __webpack_require__(16);
+	var getName = __webpack_require__(18);
+	var getProperties = __webpack_require__(19);
+	var getEnumerableProperties = __webpack_require__(20);
 
 	module.exports = inspect;
 
@@ -1180,7 +1899,7 @@
 
 
 /***/ },
-/* 14 */
+/* 18 */
 /***/ function(module, exports) {
 
 	/*!
@@ -1208,7 +1927,7 @@
 
 
 /***/ },
-/* 15 */
+/* 19 */
 /***/ function(module, exports) {
 
 	/*!
@@ -1250,7 +1969,7 @@
 
 
 /***/ },
-/* 16 */
+/* 20 */
 /***/ function(module, exports) {
 
 	/*!
@@ -1282,7 +2001,7 @@
 
 
 /***/ },
-/* 17 */
+/* 21 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -1295,8 +2014,8 @@
 	 * Module dependancies
 	 */
 
-	var inspect = __webpack_require__(13);
-	var config = __webpack_require__(18);
+	var inspect = __webpack_require__(17);
+	var config = __webpack_require__(22);
 
 	/**
 	 * ### .objDisplay (object)
@@ -1338,7 +2057,7 @@
 
 
 /***/ },
-/* 18 */
+/* 22 */
 /***/ function(module, exports) {
 
 	module.exports = {
@@ -1399,7 +2118,7 @@
 
 
 /***/ },
-/* 19 */
+/* 23 */
 /***/ function(module, exports) {
 
 	/*!
@@ -1450,14 +2169,14 @@
 
 
 /***/ },
-/* 20 */
+/* 24 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(21);
+	module.exports = __webpack_require__(25);
 
 
 /***/ },
-/* 21 */
+/* 25 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -1470,14 +2189,14 @@
 	 * Module dependencies
 	 */
 
-	var type = __webpack_require__(22);
+	var type = __webpack_require__(26);
 
 	/*!
 	 * Buffer.isBuffer browser shim
 	 */
 
 	var Buffer;
-	try { Buffer = __webpack_require__(24).Buffer; }
+	try { Buffer = __webpack_require__(28).Buffer; }
 	catch(ex) {
 	  Buffer = {};
 	  Buffer.isBuffer = function() { return false; }
@@ -1720,14 +2439,14 @@
 
 
 /***/ },
-/* 22 */
+/* 26 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(23);
+	module.exports = __webpack_require__(27);
 
 
 /***/ },
-/* 23 */
+/* 27 */
 /***/ function(module, exports) {
 
 	/*!
@@ -1875,7 +2594,7 @@
 
 
 /***/ },
-/* 24 */
+/* 28 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer, global) {/*!
@@ -1888,9 +2607,9 @@
 
 	'use strict'
 
-	var base64 = __webpack_require__(25)
-	var ieee754 = __webpack_require__(26)
-	var isArray = __webpack_require__(27)
+	var base64 = __webpack_require__(29)
+	var ieee754 = __webpack_require__(30)
+	var isArray = __webpack_require__(31)
 
 	exports.Buffer = Buffer
 	exports.SlowBuffer = SlowBuffer
@@ -3427,10 +4146,10 @@
 	  return i
 	}
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(24).Buffer, (function() { return this; }())))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(28).Buffer, (function() { return this; }())))
 
 /***/ },
-/* 25 */
+/* 29 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -3560,7 +4279,7 @@
 
 
 /***/ },
-/* 26 */
+/* 30 */
 /***/ function(module, exports) {
 
 	exports.read = function (buffer, offset, isLE, mLen, nBytes) {
@@ -3650,7 +4369,7 @@
 
 
 /***/ },
-/* 27 */
+/* 31 */
 /***/ function(module, exports) {
 
 	var toString = {}.toString;
@@ -3661,7 +4380,7 @@
 
 
 /***/ },
-/* 28 */
+/* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -3671,7 +4390,7 @@
 	 * MIT Licensed
 	 */
 
-	var getPathInfo = __webpack_require__(29);
+	var getPathInfo = __webpack_require__(33);
 
 	/**
 	 * ### .getPathValue(path, object)
@@ -3710,7 +4429,7 @@
 
 
 /***/ },
-/* 29 */
+/* 33 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -3719,7 +4438,7 @@
 	 * MIT Licensed
 	 */
 
-	var hasProperty = __webpack_require__(30);
+	var hasProperty = __webpack_require__(34);
 
 	/**
 	 * ### .getPathInfo(path, object)
@@ -3827,7 +4546,7 @@
 
 
 /***/ },
-/* 30 */
+/* 34 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -3836,7 +4555,7 @@
 	 * MIT Licensed
 	 */
 
-	var type = __webpack_require__(8);
+	var type = __webpack_require__(12);
 
 	/**
 	 * ### .hasProperty(object, name)
@@ -3897,7 +4616,7 @@
 
 
 /***/ },
-/* 31 */
+/* 35 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -3906,8 +4625,8 @@
 	 * MIT Licensed
 	 */
 
-	var config = __webpack_require__(18);
-	var flag = __webpack_require__(7);
+	var config = __webpack_require__(22);
+	var flag = __webpack_require__(11);
 
 	/**
 	 * ### addProperty (ctx, name, getter)
@@ -3951,7 +4670,7 @@
 
 
 /***/ },
-/* 32 */
+/* 36 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -3960,7 +4679,7 @@
 	 * MIT Licensed
 	 */
 
-	var config = __webpack_require__(18);
+	var config = __webpack_require__(22);
 
 	/**
 	 * ### .addMethod (ctx, name, method)
@@ -3987,7 +4706,7 @@
 	 * @name addMethod
 	 * @api public
 	 */
-	var flag = __webpack_require__(7);
+	var flag = __webpack_require__(11);
 
 	module.exports = function (ctx, name, method) {
 	  ctx[name] = function () {
@@ -4001,7 +4720,7 @@
 
 
 /***/ },
-/* 33 */
+/* 37 */
 /***/ function(module, exports) {
 
 	/*!
@@ -4062,7 +4781,7 @@
 
 
 /***/ },
-/* 34 */
+/* 38 */
 /***/ function(module, exports) {
 
 	/*!
@@ -4120,7 +4839,7 @@
 
 
 /***/ },
-/* 35 */
+/* 39 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -4133,9 +4852,9 @@
 	 * Module dependencies
 	 */
 
-	var transferFlags = __webpack_require__(19);
-	var flag = __webpack_require__(7);
-	var config = __webpack_require__(18);
+	var transferFlags = __webpack_require__(23);
+	var flag = __webpack_require__(11);
+	var config = __webpack_require__(22);
 
 	/*!
 	 * Module variables
@@ -4238,7 +4957,7 @@
 
 
 /***/ },
-/* 36 */
+/* 40 */
 /***/ function(module, exports) {
 
 	/*!
@@ -4298,7 +5017,7 @@
 
 
 /***/ },
-/* 37 */
+/* 41 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*!
@@ -4308,7 +5027,7 @@
 	 * MIT Licensed
 	 */
 
-	var config = __webpack_require__(18);
+	var config = __webpack_require__(22);
 
 	module.exports = function (_chai, util) {
 	  /*!
@@ -4435,7 +5154,7 @@
 
 
 /***/ },
-/* 38 */
+/* 42 */
 /***/ function(module, exports) {
 
 	/*!
@@ -6301,7 +7020,7 @@
 
 
 /***/ },
-/* 39 */
+/* 43 */
 /***/ function(module, exports) {
 
 	/*!
@@ -6341,7 +7060,7 @@
 
 
 /***/ },
-/* 40 */
+/* 44 */
 /***/ function(module, exports) {
 
 	/*!
@@ -6548,7 +7267,7 @@
 
 
 /***/ },
-/* 41 */
+/* 45 */
 /***/ function(module, exports) {
 
 	/*!
@@ -8196,743 +8915,6 @@
 	  ('isFrozen', 'frozen')
 	  ('isNotFrozen', 'notFrozen');
 	};
-
-
-/***/ },
-/* 42 */
-/***/ function(module, exports, __webpack_require__) {
-
-	// var Ws = typeof window === 'undefined' ? require('ws') : null
-	var Bin = __webpack_require__(43);
-	var PacketEmitter = __webpack_require__(44);
-	var Util = __webpack_require__(46);
-
-	function Client(url, packets, opt) {
-	  this.url = url;
-	  this._initWs(url, opt);
-
-	  PacketEmitter.prototype.constructor.call(this, packets);
-	}
-
-	Client.prototype = Object.create(PacketEmitter.prototype);
-
-	Client.prototype.constructor = Client;
-
-	Client.prototype.close = function(code, msg) {
-	  this._ws.close(code, msg);
-	};
-
-	Client.prototype.reconnection = function(url, opt) {
-	  this._initWs(url, opt);
-	}
-
-	Client.prototype._initWs = function(url, opt){
-	  this._ws = new Ws(url, opt);
-	  this._ws.on('message', this._onmessage.bind(this));
-	  this._ws.on('open', this.emit.bind(this, 'open'));
-	  this._ws.on('error', this.emit.bind(this, 'error'));
-	  this._ws.on('close', this.emit.bind(this, 'close'));
-	}
-
-	Client.prototype._onmessage = function(data) {
-	  var bin = new Bin();
-	  bin.decriptUTF8(data);
-	  var flag = bin.decriptFlag();
-	  if (this._decript[flag] === undefined) {
-	    var msg = '[kaaanetClient] on message from ' + this.url;
-	    msg += ' The flag n° ' + flag + ' don\'t exist in the client\'s packets ';
-	    msg += '' + Util.inspect(this.packets);
-	    throw new Error(msg);
-	  }
-
-	  var data = this._decript[flag](bin);
-	  this.emit(data.name, data, this);
-	};
-
-	Client.prototype._createSend = function(packet) {
-	  var _this = this;
-	  return function(data) {
-	    var p = _this._cript[packet.name](data);
-	    if (_this._ws.readyState === 1) _this._ws.send(p);
-	  };
-	};
-
-	module.exports = Client;
-
-
-/***/ },
-/* 43 */
-/***/ function(module, exports) {
-
-	module.exports = Bin = function(){
-		this.bin = "";
-		this.out = {};
-		this.utf8 = "";
-	}
-
-	Bin.prototype.criptFlag = function(val) {
-		var bin = val.toString(2);
-
-		// Ajouter le nombre de 0;
-		while(bin.length < 7){
-			bin = "0"+bin;
-		}
-
-		bin = "1"+bin;
-
-		if(bin.length>8){
-			console.error("le flag est codé sur 7 bits");
-			return -1;
-		}
-
-		this.bin += bin;
-
-		return this.bin;
-	}
-
-	Bin.prototype.decriptFlag = function(){
-		this.decript(8,'flag');
-		var a = this.out.flag.toString(2);
-
-		a = "0"+a.slice(1);
-
-		this.out.flag = parseInt(a,2);
-		
-		return this.out.flag;
-	}
-
-	Bin.prototype.cript = function(bit,val) {
-		var val = Number(val);
-		
-		if(isNaN(val)){
-			throw new Error("la valeur à cripter n'est pas un nombre");
-			val = 0;
-		}
-
-		var bin = Number(val).toString(2);
-
-		// Ajouter le nombre de 0;
-		while(bin.length < bit){
-			bin = "0"+bin;
-		}
-
-		if(bin.length>bit){
-			console.log(val, "est trop grand");
-			throw new Error("vous avez depasse le nombre de bit(s)");
-			return -1;
-		}
-
-		this.bin += bin;
-
-		return this.bin;
-	}
-
-	Bin.prototype.decript = function(bit,name) {
-		if(this.bin == ""){
-			console.warn("rien a decript"); 
-			return -1;
-		}
-
-		var a = parseInt(this.bin.slice(0,bit),2);
-
-		this.bin = this.bin.slice(bit);
-		
-		if(name) this.out[name] = a;
-		return a;
-	};
-
-	Bin.prototype.criptString = function(bit,s){
-		var string = String(s);
-		var ajout = bit - string.length;
-
-		if(ajout<0){ 
-			console.error("Vous avez depassé le nombre de bit(s)");
-			return -1;
-		}
-		while(ajout>0){
-			string = String.fromCharCode(0)+string;
-			ajout --
-		}
-
-		for(var a =0; a<string.length;a++){
-			var bin = string.charCodeAt(a).toString(2);
-
-			while(bin.length < 8){
-				bin = "0"+bin;
-			}
-
-			this.bin += bin;
-		}
-
-		return this.bin;
-	}
-
-	Bin.prototype.decriptString = function(bit,name){
-		var out = "";
-
-		for(var i = 0; i<bit; i++){
-			var a = parseInt(this.bin.slice(0,8),2);
-			this.bin = this.bin.slice(8);
-			if(a == 0 ) continue;
-			var caract = String.fromCharCode(a);
-			out += caract;
-		}
-
-		if(name) this.out[name] = out;
-
-		return out;
-	}
-
-	Bin.prototype.criptArrayString = function(bytes,bitLengthArray,array){
-
-		this.cript(bitLengthArray,array.length);
-		for(var i in array){
-			var d = array[i];
-			if(typeof d != "string"){ throw new Error("Le tableau n'accepte que des valeur string"); }
-			this.criptString(bytes,d);
-		}
-
-		return this.bin;
-	}
-
-	Bin.prototype.decriptArrayString = function(bytes,bitLengthArray,name){
-		var out = [];
-		
-		var nb = this.decript(bitLengthArray);
-
-		for(var i =0 ; i <nb;i++){
-			out.push(this.decriptString(bytes));
-		}
-
-		if(name) this.out[name] = out;
-		return out;
-	}
-
-	Bin.prototype.criptArray = function(bit,bitLengthArray,array){
-		this.cript(bitLengthArray,array.length);
-		for(var i in array){
-			var d = array[i];
-			if(typeof d != "number"){ throw new Error("Le tableau n'accepte que des valeur number"); }
-			this.cript(bit,d);
-		}
-
-		return this.bin;
-	}
-
-	Bin.prototype.decriptArray = function(bit,bitLengthArray,name){
-		var out = [];
-		
-		var nb = this.decript(bitLengthArray);
-
-		for(var i =0 ; i <nb;i++){
-			out.push(this.decript(bit));
-		}
-
-		if(name) this.out[name] = out;
-		return out;
-	}
-
-	Bin.prototype.criptUTF8 = function(){
-		var a = this.bin;
-
-		var c = '';
-		while(a.length > 0){
-			var b = a.slice(0,8);
-
-			a = a.slice(8);
-
-			while(b.length < 8){
-				b = b+"0";
-			}
-
-			b = parseInt(b,2);
-			b = String.fromCharCode(b);
-
-			this.utf8 = this.utf8+b;
-		}
-
-		return this.utf8;
-	}
-
-	Bin.prototype.decriptUTF8 = function(utf8){
-		var a;
-		this.bin = "";
-		for(var i = 0; i<utf8.length;i++){
-			var u = utf8.charCodeAt(i).toString(2);
-			while(u.length < 8){
-				u = "0"+u;
-			}
-			if(u == ""){
-				this.bin += "00000000"
-			}else{
-				this.bin += u;
-			}
-		}
-
-		return this.bin;
-	}
-
-/***/ },
-/* 44 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var EventEmitter = __webpack_require__(45);
-
-	function PacketEmitter(packets) {
-	  this.packets = packets;
-	  this.send = {};
-	  this._cript = {};
-	  this._decript = {};
-	  if (packets) this.initPackets(packets);
-	}
-
-	PacketEmitter.prototype = Object.create(EventEmitter.prototype);
-
-	PacketEmitter.prototype.constructor = PacketEmitter;
-
-	PacketEmitter.prototype.initPackets = function(packets) {
-	  this.packets = packets;
-	  this._createCripts(packets);
-	  this._createDecripts(packets);
-	  this._createSends(packets);
-	};
-
-	PacketEmitter.prototype.extendPackets = function(packets) {
-	  this.packets = this.packets.concat(packets);
-	  this.initPackets(this.packets);
-	};
-
-	PacketEmitter.prototype._createCripts = function(packets) {
-	  for (var i = packets.length - 1; i >= 0; i--) {
-	    var p = packets[i];
-	    this._cript[p.name] = this._createCript(p, i);
-	  };
-	};
-
-	PacketEmitter.prototype._createDecripts = function(packets) {
-	  for (var i = packets.length - 1; i >= 0; i--) {
-	    var p = packets[i];
-	    this._decript[i] = this._createDecript(p);
-	  };
-	};
-
-	PacketEmitter.prototype._createSends = function(packets) {
-	  for (var i = packets.length - 1; i >= 0; i--) {
-	    var p = packets[i];
-	    this.send[p.name] = this._createSend(p);
-	  };
-	};
-
-	PacketEmitter.prototype._createSend = function() {};
-
-	PacketEmitter.prototype._createDecript = function(packet) {
-	  var _this = this;
-	  return function(bin) {
-	    var out = {};
-	    out.name = packet.name;
-
-	    _this._decriptBinaryWithPacket(packet, bin, out);
-
-	    return out;
-	  };
-	};
-
-	PacketEmitter.prototype._decriptBinaryWithPacket = function(packet, bin, out) {
-	  var make = {
-	    string: 'decriptString',
-	    integer: 'decript',
-	    arrayString: 'decriptArrayString',
-	    arrayNumber: 'decriptArray',
-	  };
-
-	  if (bin.bin === '') return;
-
-	  for (var i in packet) {
-	    if (i === 'name') continue;
-
-	    if (packet[i] instanceof Array) {
-	      if (typeof packet[i][1] != 'number') {
-	        var msg = 'the collection packet definition : "' + i + '"\n';
-	        msg += 'must have an integer in the second element to define the size of the collection (in bits)\n';
-	        msg += ' Actual value : ' + packet[i][1];
-	        throw new SyntaxError(msg);
-	      }
-
-	      var le = bin.decript(packet[i][1]);
-	      var collection = [];
-	      for (var y = 0; y < le; y++) {
-	        var obj = {};
-	        this._decriptBinaryWithPacket(packet[i][0], bin, obj);
-	        collection.unshift(obj);
-	      }
-
-	      out[i] = collection;
-	    }else {
-	      var split = packet[i].split('-');
-	      var type =  split[0];
-	      var size =  split.slice(1).map(function(el) {return Number(el);});
-
-	      var algo = make[type];
-	      if (algo === undefined) throw new TypeError('The type ' + type + ' don\'t exist');
-	      out[i] = bin[algo].apply(bin, size.concat(i));
-	    }
-	  }
-	};
-
-	PacketEmitter.prototype._createCript = function(packet, flag) {
-	  var _this = this;
-	  return function(data) {
-	    var bin = new Bin();
-	    bin.criptFlag(flag);
-	    _this._createBinaryWithPacket(packet, bin, data);
-	    return bin.criptUTF8();
-	  };
-	};
-
-	PacketEmitter.prototype._createBinaryWithPacket = function(packet, bin, data) {
-	  var make = {
-	    string: 'criptString',
-	    integer: 'cript',
-	    arrayString: 'criptArrayString',
-	    arrayNumber: 'criptArray',
-	  };
-
-	  var _undefined = {
-	    string: '',
-	    integer: 0,
-	    arrayString: [],
-	    arrayNumber: [],
-	  };
-
-	  for (var i in packet) {
-	    if (i === 'name' || !data) continue;
-	    if (packet[i] instanceof Array) {
-	      if(!data[i]) throw new Error('The datas have not '+i+' key');
-	      bin.cript(packet[i][1], data[i].length);
-	      var collectionData = data[i];
-	      for (var y = collectionData.length - 1; y >= 0; y--) {
-	        var data = collectionData[y];
-	        this._createBinaryWithPacket(packet[i][0], bin, data);
-	      };
-	    }else {
-	      var split = packet[i].split('-');
-	      var type =  split[0];
-	      var size =  split.slice(1).map(function(el) {return Number(el);});
-
-	      var algo = make[type];
-	      if (algo === undefined) throw new TypeError('The type ' + type + ' don\'t exist');
-
-	      data[i] = data[i] === undefined ? _undefined[type] : data[i];
-	      bin[algo].apply(bin, size.concat([data[i]]));
-	    }
-	  }
-	};
-
-	module.exports = PacketEmitter;
-
-
-/***/ },
-/* 45 */
-/***/ function(module, exports) {
-
-	// Copyright Joyent, Inc. and other Node contributors.
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a
-	// copy of this software and associated documentation files (the
-	// "Software"), to deal in the Software without restriction, including
-	// without limitation the rights to use, copy, modify, merge, publish,
-	// distribute, sublicense, and/or sell copies of the Software, and to permit
-	// persons to whom the Software is furnished to do so, subject to the
-	// following conditions:
-	//
-	// The above copyright notice and this permission notice shall be included
-	// in all copies or substantial portions of the Software.
-	//
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-	// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-	// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-	// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-	// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-	// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-	function EventEmitter() {
-	  this._events = this._events || {};
-	  this._maxListeners = this._maxListeners || undefined;
-	}
-	module.exports = EventEmitter;
-
-	// Backwards-compat with node 0.10.x
-	EventEmitter.EventEmitter = EventEmitter;
-
-	EventEmitter.prototype._events = undefined;
-	EventEmitter.prototype._maxListeners = undefined;
-
-	// By default EventEmitters will print a warning if more than 10 listeners are
-	// added to it. This is a useful default which helps finding memory leaks.
-	EventEmitter.defaultMaxListeners = 10;
-
-	// Obviously not all Emitters should be limited to 10. This function allows
-	// that to be increased. Set to zero for unlimited.
-	EventEmitter.prototype.setMaxListeners = function(n) {
-	  if (!isNumber(n) || n < 0 || isNaN(n))
-	    throw TypeError('n must be a positive number');
-	  this._maxListeners = n;
-	  return this;
-	};
-
-	EventEmitter.prototype.emit = function(type) {
-	  var er, handler, len, args, i, listeners;
-
-	  if (!this._events)
-	    this._events = {};
-
-	  // If there is no 'error' event listener then throw.
-	  if (type === 'error') {
-	    if (!this._events.error ||
-	        (isObject(this._events.error) && !this._events.error.length)) {
-	      er = arguments[1];
-	      if (er instanceof Error) {
-	        throw er; // Unhandled 'error' event
-	      }
-	      throw TypeError('Uncaught, unspecified "error" event.');
-	    }
-	  }
-
-	  handler = this._events[type];
-
-	  if (isUndefined(handler))
-	    return false;
-
-	  if (isFunction(handler)) {
-	    switch (arguments.length) {
-	      // fast cases
-	      case 1:
-	        handler.call(this);
-	        break;
-	      case 2:
-	        handler.call(this, arguments[1]);
-	        break;
-	      case 3:
-	        handler.call(this, arguments[1], arguments[2]);
-	        break;
-	      // slower
-	      default:
-	        args = Array.prototype.slice.call(arguments, 1);
-	        handler.apply(this, args);
-	    }
-	  } else if (isObject(handler)) {
-	    args = Array.prototype.slice.call(arguments, 1);
-	    listeners = handler.slice();
-	    len = listeners.length;
-	    for (i = 0; i < len; i++)
-	      listeners[i].apply(this, args);
-	  }
-
-	  return true;
-	};
-
-	EventEmitter.prototype.addListener = function(type, listener) {
-	  var m;
-
-	  if (!isFunction(listener))
-	    throw TypeError('listener must be a function');
-
-	  if (!this._events)
-	    this._events = {};
-
-	  // To avoid recursion in the case that type === "newListener"! Before
-	  // adding it to the listeners, first emit "newListener".
-	  if (this._events.newListener)
-	    this.emit('newListener', type,
-	              isFunction(listener.listener) ?
-	              listener.listener : listener);
-
-	  if (!this._events[type])
-	    // Optimize the case of one listener. Don't need the extra array object.
-	    this._events[type] = listener;
-	  else if (isObject(this._events[type]))
-	    // If we've already got an array, just append.
-	    this._events[type].push(listener);
-	  else
-	    // Adding the second element, need to change to array.
-	    this._events[type] = [this._events[type], listener];
-
-	  // Check for listener leak
-	  if (isObject(this._events[type]) && !this._events[type].warned) {
-	    if (!isUndefined(this._maxListeners)) {
-	      m = this._maxListeners;
-	    } else {
-	      m = EventEmitter.defaultMaxListeners;
-	    }
-
-	    if (m && m > 0 && this._events[type].length > m) {
-	      this._events[type].warned = true;
-	      console.error('(node) warning: possible EventEmitter memory ' +
-	                    'leak detected. %d listeners added. ' +
-	                    'Use emitter.setMaxListeners() to increase limit.',
-	                    this._events[type].length);
-	      if (typeof console.trace === 'function') {
-	        // not supported in IE 10
-	        console.trace();
-	      }
-	    }
-	  }
-
-	  return this;
-	};
-
-	EventEmitter.prototype.on = EventEmitter.prototype.addListener;
-
-	EventEmitter.prototype.once = function(type, listener) {
-	  if (!isFunction(listener))
-	    throw TypeError('listener must be a function');
-
-	  var fired = false;
-
-	  function g() {
-	    this.removeListener(type, g);
-
-	    if (!fired) {
-	      fired = true;
-	      listener.apply(this, arguments);
-	    }
-	  }
-
-	  g.listener = listener;
-	  this.on(type, g);
-
-	  return this;
-	};
-
-	// emits a 'removeListener' event iff the listener was removed
-	EventEmitter.prototype.removeListener = function(type, listener) {
-	  var list, position, length, i;
-
-	  if (!isFunction(listener))
-	    throw TypeError('listener must be a function');
-
-	  if (!this._events || !this._events[type])
-	    return this;
-
-	  list = this._events[type];
-	  length = list.length;
-	  position = -1;
-
-	  if (list === listener ||
-	      (isFunction(list.listener) && list.listener === listener)) {
-	    delete this._events[type];
-	    if (this._events.removeListener)
-	      this.emit('removeListener', type, listener);
-
-	  } else if (isObject(list)) {
-	    for (i = length; i-- > 0;) {
-	      if (list[i] === listener ||
-	          (list[i].listener && list[i].listener === listener)) {
-	        position = i;
-	        break;
-	      }
-	    }
-
-	    if (position < 0)
-	      return this;
-
-	    if (list.length === 1) {
-	      list.length = 0;
-	      delete this._events[type];
-	    } else {
-	      list.splice(position, 1);
-	    }
-
-	    if (this._events.removeListener)
-	      this.emit('removeListener', type, listener);
-	  }
-
-	  return this;
-	};
-
-	EventEmitter.prototype.removeAllListeners = function(type) {
-	  var key, listeners;
-
-	  if (!this._events)
-	    return this;
-
-	  // not listening for removeListener, no need to emit
-	  if (!this._events.removeListener) {
-	    if (arguments.length === 0)
-	      this._events = {};
-	    else if (this._events[type])
-	      delete this._events[type];
-	    return this;
-	  }
-
-	  // emit removeListener for all listeners on all events
-	  if (arguments.length === 0) {
-	    for (key in this._events) {
-	      if (key === 'removeListener') continue;
-	      this.removeAllListeners(key);
-	    }
-	    this.removeAllListeners('removeListener');
-	    this._events = {};
-	    return this;
-	  }
-
-	  listeners = this._events[type];
-
-	  if (isFunction(listeners)) {
-	    this.removeListener(type, listeners);
-	  } else if (listeners) {
-	    // LIFO order
-	    while (listeners.length)
-	      this.removeListener(type, listeners[listeners.length - 1]);
-	  }
-	  delete this._events[type];
-
-	  return this;
-	};
-
-	EventEmitter.prototype.listeners = function(type) {
-	  var ret;
-	  if (!this._events || !this._events[type])
-	    ret = [];
-	  else if (isFunction(this._events[type]))
-	    ret = [this._events[type]];
-	  else
-	    ret = this._events[type].slice();
-	  return ret;
-	};
-
-	EventEmitter.prototype.listenerCount = function(type) {
-	  if (this._events) {
-	    var evlistener = this._events[type];
-
-	    if (isFunction(evlistener))
-	      return 1;
-	    else if (evlistener)
-	      return evlistener.length;
-	  }
-	  return 0;
-	};
-
-	EventEmitter.listenerCount = function(emitter, type) {
-	  return emitter.listenerCount(type);
-	};
-
-	function isFunction(arg) {
-	  return typeof arg === 'function';
-	}
-
-	function isNumber(arg) {
-	  return typeof arg === 'number';
-	}
-
-	function isObject(arg) {
-	  return typeof arg === 'object' && arg !== null;
-	}
-
-	function isUndefined(arg) {
-	  return arg === void 0;
-	}
 
 
 /***/ },

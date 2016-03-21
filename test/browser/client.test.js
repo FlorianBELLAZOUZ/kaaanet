@@ -1,4 +1,4 @@
-var Client = require('../../lib/Client.browser');
+var Client = require('../../lib/Client');
 var Should = require('chai').Should();
 
 describe('Client', function () {
