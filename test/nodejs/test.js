@@ -1,5 +1,5 @@
 var ServerClient = require('../../index.js').Server._ServerClient;
-var Client = require('../../index.js').ClientNodejs;
+var Client = require('../../index.js').Client;
 var Packet = require('../../index.js').Packet;
 var Server = require('../../index.js').Server;
 var Should = require('chai').should();
