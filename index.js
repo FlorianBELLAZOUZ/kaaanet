@@ -1,4 +1,4 @@
-exports.Packet = Packet = require('./lib/Packet');
+var Packet = exports.Packet = require('./lib/Packet');
 exports.Client = require('./lib/Client');
 exports.Server = require('./lib/Server');
 exports.ArrayInt = Packet.ArrayInt;
