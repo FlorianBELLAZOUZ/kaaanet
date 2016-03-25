@@ -52,7 +52,7 @@
 
 	function Client(url, packets, opt) {
 	  this.url = url;
-	  this._initWs(url, opt);
+	  this.opt = opt;
 
 	  PacketEmitter.prototype.constructor.call(this, packets);
 	}
@@ -67,19 +67,24 @@
 	  this._ws.close(code, msg);
 	};
 
-	Client.prototype.reconnection = function(url, opt) {
-	  this._initWs(url, opt);
-	}
+	Client.prototype._initWs = function(url, opt) {
+	  this.url = url || this.url;
+	  this.opt = opt || this.opt;
 
-	Client.prototype._initWs = function(url, opt){
-	  this._ws = new Ws(url, opt);
+	  this._ws = new Ws(this.url, this.opt);
 	  this._ws.on('message', this._onmessage.bind(this));
 	  this._ws.on('open', this.emit.bind(this, 'open'));
 	  this._ws.on('error', this.emit.bind(this, 'error'));
 	  this._ws.on('close', this.emit.bind(this, 'close'));
 	}
 
+	Client.prototype.connect = Client.prototype._initWs;
+
+	Client.prototype.reconnection = Client.prototype.connect;
+
 	Client.prototype._onmessage = function(data) {
+	  if(data.data) data = data.data; // Fix for WebSocket browser
+
 	  var bin = new Bin();
 	  bin.decriptUTF8(data);
 	  var flag = bin.decriptFlag();

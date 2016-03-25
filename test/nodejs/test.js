@@ -101,6 +101,7 @@ describe('Server', function() {
       });
 
       var client = new Client('ws://localhost:8080', packet);
+      client.connect();
       client.on('open', function() {
         client.send.test({version:2});
       });
@@ -143,6 +144,7 @@ describe('Server', function() {
       });
 
       var client = new Client('ws://localhost:8080', packet);
+      client.connect();
       client.on('open', function() {
         client.send.test({version:3});
       });
@@ -156,6 +158,7 @@ describe('Server', function() {
       });
 
       var client = new Client('ws://localhost:8080', packet);
+      client.connect();
       client.on('open', function() {
         client.send.test({version:3});
       });
@@ -178,6 +181,7 @@ describe('Client', function() {
 
   before(function() {
     client = new Client('ws://localhost:8888');
+    client.connect();
   });
 
   it('should have an instanceof websocket', function() {
@@ -215,6 +219,7 @@ describe('Client', function() {
   describe('!open', function () {
     it('should fire open when the client is connected', function(done) {
       var client = new Client('ws://localhost:8888');
+      client.connect();
       client.on('open', done);
     });
   });
@@ -276,6 +281,7 @@ describe('E2E test', function() {
       });
 
       var client = new Client('ws://localhost:8282', packet);
+      client.connect();
       client.on('open', function() {
         client.send.foo(packetData);
       })
@@ -317,6 +323,7 @@ describe('E2E test', function() {
       });
 
       var client = new Client('ws://localhost:8383', packet);
+      client.connect();
       client.on('open', function() {
         client.send.foo(packetData);
       })
@@ -337,6 +344,7 @@ describe('E2E test', function() {
 
     var server = new Server(8745, packet);
     var client = new Client('ws://localhost:8745', packet);
+    client.connect();
 
     it('should return null value', function(done) {
       server.on('foo', function(data) {
@@ -377,6 +385,7 @@ describe('E2E test', function() {
 
       server = new Server(8889, packet);
       client = new Client('ws://localhost:8889', packet);
+      client.connect();
       client.on('open', done);
     });
 
