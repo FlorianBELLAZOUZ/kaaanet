@@ -54,6 +54,10 @@
 	  this.url = url;
 	  this.opt = opt;
 
+	  if(!opt || !opt.asyncConnection){
+	    this.connect();
+	  }
+
 	  PacketEmitter.prototype.constructor.call(this, packets);
 	}
 
@@ -68,6 +72,7 @@
 	};
 
 	Client.prototype._initWs = function(url, opt) {
+	  console.log("_initWs");
 	  this.url = url || this.url;
 	  this.opt = opt || this.opt;
 
