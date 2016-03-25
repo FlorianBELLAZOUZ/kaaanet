@@ -184,6 +184,12 @@ describe('Client', function() {
     client._ws.should.be.an.instanceof(Ws);
   });
 
+  it('should open connection to the server', function(done) {
+    var client = new Client('ws://localhost:8888', {}, {});
+
+    client.on('open', done);
+  });
+
   it('should connect asynchrouly if the asyncConnection option is set', function(done) {
     var client = new Client('ws://localhost:8888', {}, {asyncConnection:true});
 

@@ -54,7 +54,8 @@
 	  this.url = url;
 	  this.opt = opt;
 
-	  if(!opt || !opt.asyncConnection){
+	  if( (opt && !opt.asyncConnection)
+	    || !opt){
 	    this.connect();
 	  }
 
@@ -72,7 +73,6 @@
 	};
 
 	Client.prototype._initWs = function(url, opt) {
-	  console.log("_initWs");
 	  this.url = url || this.url;
 	  this.opt = opt || this.opt;
 
@@ -85,7 +85,10 @@
 
 	Client.prototype.connect = Client.prototype._initWs;
 
-	Client.prototype.reconnection = Client.prototype.connect;
+	Client.prototype.reconnection = function(url, opt) {
+	  this._ws.close();
+	  this._initWs(url, opt);
+	}
 
 	Client.prototype._onmessage = function(data) {
 	  if(data.data) data = data.data; // Fix for WebSocket browser
