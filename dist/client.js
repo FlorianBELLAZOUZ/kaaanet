@@ -74,7 +74,7 @@
 
 	Client.prototype._initWs = function(url, opt) {
 	  this.url = url || this.url;
-	  this.opt = opt || this.opt;
+	  this.opt = typeof window !== 'undefined' ? null : (opt || this.opt); // fix browser
 
 	  this._ws = new Ws(this.url, this.opt);
 	  this._ws.on('message', this._onmessage.bind(this));
