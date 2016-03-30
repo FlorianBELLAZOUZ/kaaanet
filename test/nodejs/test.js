@@ -258,6 +258,70 @@ describe('Client', function() {
 });
 
 describe('E2E test', function() {
+  context('with multi collections', function() {
+    it('should cript & decript the multi collection', function(done) {
+      var packet = Packet.create([
+        {
+          name:'updateArenaClient',
+          time: Int(40),
+          newEntity: [{nametxt:Txt(11), x:Int(11), y:Int(11), id:Int(50)}, 6],
+          fx: [{nametxt:Txt(11), x:Int(11), y:Int(11), id:Int(50), idTarget:Int(50)}, 6],
+          kill: [{id:Int(50)}, 6],
+          changeState: [{id:Int(50), type:Int(11)}, 6],
+          update: [{id:Int(50), x:Int(11), y:Int(11)}, 6],
+          players: [{invisible:Int(1), type:Int(4), dir:Int(4), x:Int(11), y:Int(11)}, 3],
+          notification: [{type:Int(4), message:Txt(20)}, 6],
+          hud: [{nbKill:Int(11), isKaaarot:Int(1)}, 3],
+        }
+      ]);
+
+      var packetData = {
+        newEntity: [
+          {nametxt:'box', x:123, y:443, id:34},
+          {nametxt:'karot', x:523, y:514, id:32},
+          {nametxt:'box', x:23, y:235, id:35},
+        ],
+        fx: [
+          {nametxt:'fire', x:12, y:43, id:123, idTarget:34},
+          {nametxt:'smoke', x:12, y:43, id:123, idTarget:32}
+        ],
+        kill: [],
+        time: 10000,
+        changeState: [
+          {id:12, type:1},
+          {id:2, type:3},
+        ],
+        update: [],
+        players: [
+          {invisible:1, type:4, dir:4, x:11, y:111}
+        ],
+        notification: [
+          {type:1, message:'coucou'},
+        ],
+        hud: [
+          {nbKill:12, isKaaarot:0},
+          {nbKill:1, isKaaarot:0},
+          {nbKill:2, isKaaarot:1},
+          {nbKill:3, isKaaarot:0},
+        ],
+        time: 10000,
+      }
+
+      var server = new Server(8433, packet);
+
+      server.on('updateArenaClient', function(data) {
+        delete data.name
+        data.should.be.deep.equal(packetData);
+        done();
+      });
+
+      var client = new Client('ws://localhost:8433', packet);
+      client.on('open', function() {
+        client.send.updateArenaClient(packetData);
+      });
+    });
+  });
+
   context('on collection in packet', function() {
     it('should cript & decript the collection', function(done) {
       var packet = Packet.create([
@@ -291,9 +355,7 @@ describe('E2E test', function() {
       var client = new Client('ws://localhost:8282', packet);
       client.on('open', function() {
         client.send.foo(packetData);
-      })
-
-
+      });
     });
 
     it('should cript & decript nested collection', function(done) {
