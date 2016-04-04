@@ -263,9 +263,9 @@ describe('E2E test', function() {
       var packet = Packet.create([
         {
           name:'updateArenaClient',
-          time: Int(40),
           newEntity: [{nametxt:Txt(11), x:Int(11), y:Int(11), id:Int(50)}, 6],
           fx: [{nametxt:Txt(11), x:Int(11), y:Int(11), id:Int(50), idTarget:Int(50)}, 6],
+          time: Int(40),
           kill: [{id:Int(50)}, 6],
           changeState: [{id:Int(50), type:Int(11)}, 6],
           update: [{id:Int(50), x:Int(11), y:Int(11)}, 6],
