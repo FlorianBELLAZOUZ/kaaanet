@@ -48,8 +48,6 @@ var data = {
 
 var packetEmitter = new PacketEmitter();
 
-packetEmitter._createBinaryWithPacket(packet, bin, data);
-
 test.fn = function() {
   bin = new Bin();
   packetEmitter._createBinaryWithPacket(packet, bin, data);

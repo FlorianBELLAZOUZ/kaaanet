@@ -367,7 +367,7 @@ describe('E2E test', function() {
             integer:Int(11),
             positions:[{
               x:Int(11),
-              y:'integer-11'
+              y:Int(11)
             },11],
           },11]
         }
@@ -400,7 +400,7 @@ describe('E2E test', function() {
     });
   });
 
-  context.skip('on undefined or null value', function() {
+  context('on undefined or null value', function() {
     var packet = Packet.create([
       {
         name:'foo',
@@ -415,7 +415,7 @@ describe('E2E test', function() {
 
     it('should return null value', function(done) {
       server.on('foo', function(data) {
-        data.nullValue.should.not.exist;
+        data.nullValue.should.equal(0);
         done();
       });
 
