@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Source: Client.js</title>
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <script src="scripts/jquery.min.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/bootstrap.min.css">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css">
+    
+    
+    <script>
+    var config = {"monospaceLinks":false,"cleverLinks":false,"default":{"outputSourceFiles":true}};
+    </script>
+    
+
+    
+</head>
+<body>
+<div id="wrap" class="clearfix">
+    
+<div class="navigation">
+    <h3 class="applicationName"><a href="index.html"></a></h3>
+
+    <div class="search">
+        <input id="search" type="text" class="form-control input-sm" placeholder="Search Documentations">
+    </div>
+    <ul class="list">
+    
+        <li class="item" data-name="Packet">
+            <span class="title">
+                <a href="Packet.html">Packet</a>
+                
+                <span class="static">static</span>
+                
+            </span>
+            <ul class="members itemMembers">
+            
+            </ul>
+            <ul class="typedefs itemMembers">
+            
+            </ul>
+            <ul class="methods itemMembers">
+            
+            <span class="subtitle">Methods</span>
+            
+                <li data-name="Packet.ArrayInt"><a href="Packet.html#.ArrayInt">ArrayInt</a></li>
+            
+                <li data-name="Packet.ArrayTxt"><a href="Packet.html#.ArrayTxt">ArrayTxt</a></li>
+            
+                <li data-name="Packet.create"><a href="Packet.html#.create">create</a></li>
+            
+                <li data-name="Packet.Int"><a href="Packet.html#.Int">Int</a></li>
+            
+                <li data-name="Packet.Txt"><a href="Packet.html#.Txt">Txt</a></li>
+            
+            </ul>
+            <ul class="events itemMembers">
+            
+            </ul>
+        </li>
+    
+        <li class="item" data-name="Client">
+            <span class="title">
+                <a href="Client.html">Client</a>
+                
+            </span>
+            <ul class="members itemMembers">
+            
+            </ul>
+            <ul class="typedefs itemMembers">
+            
+            </ul>
+            <ul class="methods itemMembers">
+            
+            <span class="subtitle">Methods</span>
+            
+                <li data-name="Client#close"><a href="Client.html#close">close</a></li>
+            
+                <li data-name="Client#reconnection"><a href="Client.html#reconnection">reconnection</a></li>
+            
+            </ul>
+            <ul class="events itemMembers">
+            
+            </ul>
+        </li>
+    
+        <li class="item" data-name="Server">
+            <span class="title">
+                <a href="Server.html">Server</a>
+                
+            </span>
+            <ul class="members itemMembers">
+            
+            </ul>
+            <ul class="typedefs itemMembers">
+            
+            </ul>
+            <ul class="methods itemMembers">
+            
+            <span class="subtitle">Methods</span>
+            
+                <li data-name="Server#close"><a href="Server.html#close">close</a></li>
+            
+            </ul>
+            <ul class="events itemMembers">
+            
+            <span class="subtitle">Events</span>
+            
+                <li data-name="Server#event:connection"><a href="Server.html#event:connection">connection</a></li>
+            
+                <li data-name="Server#event:error"><a href="Server.html#event:error">error</a></li>
+            
+            </ul>
+        </li>
+    
+    </ul>
+</div>
+    <div class="main">
+        <h1 class="page-title" data-filename="Client.js.html">Source: Client.js</h1>
+        
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source "><code>var Ws = require('ws');
+var Bin = require('kaaabin');
+var PacketEmitter = require('./PacketEmitter');
+var Packet = require('./Packet');
+var Util = require('util');
+
+/**
+ * The Client is use to connect to the server
+ *
+ * @class
+ * @param {string} url     the adresse of the server
+ * @param {array} packets  the packets to exchange
+ * @param {object} opt     the object for the ws client
+ */
+function Client(url, packets, opt) {
+  this.url = url;
+  this.opt = opt;
+
+  if( (opt &amp;&amp; !opt.asyncConnection)
+    || !opt){
+    this.connect();
+  }
+
+  PacketEmitter.prototype.constructor.call(this, packets);
+}
+
+Client.Packet = Packet;
+
+Client.prototype = Object.create(PacketEmitter.prototype);
+
+Client.prototype.constructor = Client;
+
+/**
+ * Close the connection to the client
+ * @param  {number} code
+ * @param  {string} msg
+ */
+Client.prototype.close = function(code, msg) {
+  this._ws.close(code, msg);
+};
+
+Client.prototype._initWs = function(url, opt) {
+  this.url = url || this.url;
+  this.opt = typeof window !== 'undefined' ? null : (opt || this.opt); // fix browser
+
+  this._ws = new Ws(this.url, this.opt);
+  this._ws.on('message', this._onmessage.bind(this));
+  this._ws.on('open', this.emit.bind(this, 'open'));
+  this._ws.on('error', this.emit.bind(this, 'error'));
+  this._ws.on('close', this.emit.bind(this, 'close'));
+}
+
+Client.prototype.connect = Client.prototype._initWs;
+
+/**
+ * Reconnection to the server
+ * @param  {string} url addresse to the server
+ * @param  {object} opt options for the ws client
+ */
+Client.prototype.reconnection = function(url, opt) {
+  this._ws.close();
+  this._initWs(url, opt);
+}
+
+Client.prototype._onmessage = function(data) {
+  if(data.data) data = data.data; // Fix for WebSocket browser
+
+  var bin = new Bin();
+  bin.decriptUTF8(data);
+  var flag = bin.decriptFlag();
+  if (this._decript[flag] === undefined) {
+    var msg = '[kaaanetClient] on message from ' + this.url;
+    msg += ' The flag n° ' + flag + ' don\'t exist in the client\'s packets ';
+    msg += '' + Util.inspect(this.packets);
+    throw new Error(msg);
+  }
+
+  var data = this._decript[flag](bin);
+  this.emit(data.name, data, this);
+};
+
+Client.prototype._createSend = function(packet) {
+  var _this = this;
+  return function(data) {
+    var p = _this._cript[packet.name](data);
+    if (_this._ws.readyState === 1) _this._ws.send(p);
+  };
+};
+
+module.exports = Client;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+
+
+        
+
+        <footer>
+            Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Fri Apr 29 2016 17:24:11 GMT+0200 (Romance Daylight Time)
+        </footer>
+    </div>
+</div>
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+<script src="scripts/main.js"></script>
+</body>
+</html>

@@ -12,6 +12,8 @@
   "devDependencies": {
     "benchmark": "^2.1.0",
     "colors": "^1.1.2",
+    "jaguarjs-jsdoc": "git+ssh://git@github.com/davidshimjs/jaguarjs-jsdoc.git",
+    "jsdoc": "^3.4.0",
     "karma": "^0.13.22",
     "karma-chrome-launcher": "^0.2.2",
     "karma-commonjs": "0.0.13",
@@ -26,7 +28,8 @@
     "test": "mocha ./test/nodejs",
     "start": "node server.js",
     "testBrowser": "karma start karma.conf.js",
-    "build": "webpack && uglifyjs dist/client.js -o dist/client.min.js"
+    "build": "webpack && uglifyjs dist/client.js -o dist/client.min.js",
+    "doc": "jsdoc -t \"./node_modules/jaguarjs-jsdoc\" ./lib -d ./doc"
   },
   "author": "Florian BELLAZOUZ",
   "license": "ISC",

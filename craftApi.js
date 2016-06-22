@@ -100,12 +100,6 @@ client.get.profile({id:30}, function(data){
   save.data = data;
 });
 
-
-
-
-
-
-
 //////////////////////////////////
 
 packet.init

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Source: Packet.js</title>
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <script src="scripts/jquery.min.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/bootstrap.min.css">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css">
+    
+    
+    <script>
+    var config = {"monospaceLinks":false,"cleverLinks":false,"default":{"outputSourceFiles":true}};
+    </script>
+    
+
+    
+</head>
+<body>
+<div id="wrap" class="clearfix">
+    
+<div class="navigation">
+    <h3 class="applicationName"><a href="index.html"></a></h3>
+
+    <div class="search">
+        <input id="search" type="text" class="form-control input-sm" placeholder="Search Documentations">
+    </div>
+    <ul class="list">
+    
+        <li class="item" data-name="Packet">
+            <span class="title">
+                <a href="Packet.html">Packet</a>
+                
+                <span class="static">static</span>
+                
+            </span>
+            <ul class="members itemMembers">
+            
+            </ul>
+            <ul class="typedefs itemMembers">
+            
+            </ul>
+            <ul class="methods itemMembers">
+            
+            <span class="subtitle">Methods</span>
+            
+                <li data-name="Packet.ArrayInt"><a href="Packet.html#.ArrayInt">ArrayInt</a></li>
+            
+                <li data-name="Packet.ArrayTxt"><a href="Packet.html#.ArrayTxt">ArrayTxt</a></li>
+            
+                <li data-name="Packet.create"><a href="Packet.html#.create">create</a></li>
+            
+                <li data-name="Packet.Int"><a href="Packet.html#.Int">Int</a></li>
+            
+                <li data-name="Packet.Txt"><a href="Packet.html#.Txt">Txt</a></li>
+            
+            </ul>
+            <ul class="events itemMembers">
+            
+            </ul>
+        </li>
+    
+        <li class="item" data-name="Client">
+            <span class="title">
+                <a href="Client.html">Client</a>
+                
+            </span>
+            <ul class="members itemMembers">
+            
+            </ul>
+            <ul class="typedefs itemMembers">
+            
+            </ul>
+            <ul class="methods itemMembers">
+            
+            <span class="subtitle">Methods</span>
+            
+                <li data-name="Client#close"><a href="Client.html#close">close</a></li>
+            
+                <li data-name="Client#reconnection"><a href="Client.html#reconnection">reconnection</a></li>
+            
+            </ul>
+            <ul class="events itemMembers">
+            
+            </ul>
+        </li>
+    
+        <li class="item" data-name="Server">
+            <span class="title">
+                <a href="Server.html">Server</a>
+                
+            </span>
+            <ul class="members itemMembers">
+            
+            </ul>
+            <ul class="typedefs itemMembers">
+            
+            </ul>
+            <ul class="methods itemMembers">
+            
+            <span class="subtitle">Methods</span>
+            
+                <li data-name="Server#close"><a href="Server.html#close">close</a></li>
+            
+            </ul>
+            <ul class="events itemMembers">
+            
+            <span class="subtitle">Events</span>
+            
+                <li data-name="Server#event:connection"><a href="Server.html#event:connection">connection</a></li>
+            
+                <li data-name="Server#event:error"><a href="Server.html#event:error">error</a></li>
+            
+            </ul>
+        </li>
+    
+    </ul>
+</div>
+    <div class="main">
+        <h1 class="page-title" data-filename="Packet.js.html">Source: Packet.js</h1>
+        
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source "><code>var Expect = require('assert');
+
+/**
+ * @namespace Packet
+ */
+
+var packet = {
+	name:"name",
+}
+
+/**
+ * Create a template for the packets
+ * @param  {array} packets   the packets descriptions
+ * @return {Packets}         the packets template
+ * @memberof Packet
+ */
+function create(packets){
+  return packets;
+}
+
+var msgNumber = 'the parameter must be a number';
+var msgInteger = 'the parameter must be a positif integer';
+
+/**
+ * Create a integer in the packet template
+ * @param {integer} bits number of bits to code the future integer
+ * @memberof Packet
+ * @example
+ * var Packet = require('kaaanet').Packet
+ * var packet = Packet.create([
+ *   {
+ *     name:'player',
+ *     x:Int(10), // the template code a x property on 10 bits so the value can be between 0 to 1024 (2^10)
+ *     y:Int(12)  // the template code a y property on 12 bits so the value can be between 0 to 4096 (2^12)
+ *   }
+ * ]);
+ *
+ * var Client = require('kaaanet').Client
+ * var client = new Client('ws://localhost:8008', packet);
+ * client.send.player({x:1002, y:4032})
+ */
+function Int(bits){
+  checkValidity(bits);
+  return ['i',bits];
+}
+
+/**
+ * Create a string in the packet template
+ * @param {integer} size the number of char that can be use in the property
+ * @memberof Packet
+ * @example
+ * var Packet = require('kaaanet').Packet
+ * var packet = Packet.create([
+ *   {
+ *     name:'message',
+ *     title:Txt(20), // the template code a title property on 20 chars so the string can have a length of 0 to 20
+ *     text:Txt(128)  // the template code a text property on 128 chars so the string can have a length of 0 to 128
+ *   }
+ * ]);
+ *
+ * var Client = require('kaaanet').Client
+ * var client = new Client('ws://localhost:8008', packet);
+ * client.send.message({title:'Error', text:'You have not enougth gold'})
+ */
+function Txt(size) {
+  checkValidity(size);
+  return ['t', size];
+}
+
+/**
+ * Create an array of integer
+ * @param {integer} bits      number of bits to code the future array integer elements
+ * @param {integer} arraySize number of elements that can be contain in the array int
+ * @memberOf Packet
+ */
+function ArrayInt(bits, arraySize) {
+  checkValidity(bits);
+  checkValidity(arraySize);
+  return ['I', bits, arraySize];
+}
+
+/**
+ * Create an array of string
+ * @param {integer} bits      number of bits to code the future array string elements
+ * @param {integer} arraySize number of elements that can be contain in the array int
+ * @memberOf Packet
+ */
+function ArrayTxt(size, arraySize){
+  checkValidity(size);
+  checkValidity(arraySize);
+  return ['T', size, arraySize];
+}
+
+function checkValidity(bits) {
+  Expect.equal(typeof bits, 'number', msgNumber);
+  Expect.equal(isPositiveInteger(bits), true, msgInteger)
+}
+
+function isPositiveInteger(s) {
+    var i = +s; // convert to a number
+    if (i &lt; 0) return false; // make sure it's positive
+    if (i != ~~i) return false; // make sure there's no decimal part
+    return true;
+}
+
+/** create */
+module.exports = create;
+module.exports.create = create;
+module.exports.Int = Int;
+module.exports.Txt = Txt;
+module.exports.ArrayInt = ArrayInt;
+module.exports.ArrayTxt = ArrayTxt;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+
+
+        
+
+        <footer>
+            Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Fri Apr 29 2016 17:24:11 GMT+0200 (Romance Daylight Time)
+        </footer>
+    </div>
+</div>
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+<script src="scripts/main.js"></script>
+</body>
+</html>
